@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import re
@@ -13,6 +14,7 @@ from flask import Flask, abort, after_this_request, jsonify, render_template, re
 APP_DIR = Path(__file__).resolve().parent
 TMP_DIR = APP_DIR / "tmp_downloads"
 TMP_DIR.mkdir(parents=True, exist_ok=True)
+ENV_COOKIES_FILE = TMP_DIR / "cookies_from_env.txt"
 
 SUPPORTED_PLATFORMS = {
     "Instagram": ("instagram.com",),
@@ -30,6 +32,14 @@ class DownloaderError(Exception):
 
 def ffmpeg_available() -> bool:
     return shutil.which("ffmpeg") is not None
+
+
+def cookies_configured() -> bool:
+    return bool(
+        os.getenv("YTDLP_COOKIES_FILE", "").strip()
+        or os.getenv("YTDLP_COOKIES_B64", "").strip()
+        or os.getenv("YTDLP_COOKIES_TEXT", "").strip()
+    )
 
 
 def is_certificate_verify_error(message: str) -> bool:
@@ -83,12 +93,68 @@ def detect_instagram_kind(url: str, item_count: int) -> str:
     return "post"
 
 
+def cookies_file_from_env() -> str | None:
+    explicit_file = os.getenv("YTDLP_COOKIES_FILE", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    cookies_b64 = os.getenv("YTDLP_COOKIES_B64", "").strip()
+    cookies_text = os.getenv("YTDLP_COOKIES_TEXT", "")
+    if not cookies_b64 and not cookies_text:
+        return None
+
+    try:
+        content = (
+            base64.b64decode(cookies_b64.encode("utf-8")).decode("utf-8")
+            if cookies_b64
+            else cookies_text
+        )
+    except Exception as exc:
+        raise DownloaderError("Invalid YTDLP_COOKIES_B64 value. Expected base64-encoded cookies.txt.") from exc
+
+    if "Netscape HTTP Cookie File" not in content:
+        raise DownloaderError("Cookies must be in Netscape cookies.txt format.")
+
+    ENV_COOKIES_FILE.write_text(content, encoding="utf-8")
+    os.chmod(ENV_COOKIES_FILE, 0o600)
+    return str(ENV_COOKIES_FILE)
+
+
 def yt_dlp_base_args() -> list[str]:
     args = ["yt-dlp", "--no-warnings"]
-    cookies_file = os.getenv("YTDLP_COOKIES_FILE", "").strip()
+    cookies_file = cookies_file_from_env()
     if cookies_file:
         args.extend(["--cookies", cookies_file])
     return args
+
+
+def is_instagram_auth_error(message: str) -> bool:
+    text = message.lower()
+    return any(
+        key in text
+        for key in [
+            "login required",
+            "rate-limit reached",
+            "requested content is not available",
+            "use --cookies-from-browser or --cookies",
+            "please wait a few minutes",
+            "challenge_required",
+        ]
+    )
+
+
+def humanize_downloader_error(message: str, platform: str | None) -> str:
+    if platform == "Instagram" and is_instagram_auth_error(message):
+        if cookies_configured():
+            return (
+                "Instagram denied this request (rate limit or account restriction). "
+                "Your server IP may be blocked. Try again later or use a different server IP."
+            )
+        return (
+            "Instagram requires login cookies for this URL (or your server IP is rate-limited). "
+            "Set Render env var YTDLP_COOKIES_B64 with a base64-encoded cookies.txt from an Instagram-logged-in browser."
+        )
+    return message
 
 
 def run_yt_dlp_command(cmd: list[str]) -> subprocess.CompletedProcess[str]:
@@ -372,7 +438,7 @@ def media():
         items, instagram_kind = to_media_payload(entries, platform=platform, source_url=url)
         has_ffmpeg = ffmpeg_available()
     except DownloaderError as err:
-        return jsonify({"error": str(err)}), 400
+        return jsonify({"error": humanize_downloader_error(str(err), platform)}), 400
 
     return jsonify(
         {
@@ -438,7 +504,7 @@ def download():
         )
         return send_file(downloaded_file, as_attachment=True, download_name=downloaded_file.name)
     except DownloaderError as err:
-        abort(400, str(err))
+        abort(400, humanize_downloader_error(str(err), platform))
 
 
 if __name__ == "__main__":

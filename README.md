@@ -88,6 +88,27 @@ Open:
 
 Render will build from the included `Dockerfile`, so ffmpeg is available in production.
 
+### Instagram on Render (login/rate limit fix)
+
+Instagram often blocks anonymous requests from datacenter IPs (including cloud hosts).
+For Instagram links, configure cookies in Render:
+
+1. Export `cookies.txt` from a browser where you are logged into Instagram.
+2. Base64-encode it:
+
+```bash
+base64 < cookies.txt | tr -d '\n'
+```
+
+3. In Render -> Service -> Environment, add:
+   - `YTDLP_COOKIES_B64` = `<that-base64-string>`
+4. Redeploy the service.
+
+Supported cookie env vars in this app:
+- `YTDLP_COOKIES_B64` (recommended for cloud)
+- `YTDLP_COOKIES_FILE` (path on disk)
+- `YTDLP_COOKIES_TEXT` (raw cookies.txt content)
+
 ## Deploy on Railway
 
 1. Push this project to GitHub.
