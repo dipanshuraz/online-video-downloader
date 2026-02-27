@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: ai-insta-download
+    env: docker
+    plan: free
+    autoDeploy: true

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Universal Media Downloader</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="container">
+    <section class="hero">
+      <p class="eyebrow">Minimal Multi-Source Downloader</p>
+      <h1>Download videos and images from a single link</h1>
+      <p class="lead">Supported: YouTube, Instagram, Facebook, Loom</p>
+      <p class="lead">Instagram modes: video, photo, reels, stories, carousel, viewer</p>
+    </section>
+
+    <section class="panel">
+      <form id="media-form" autocomplete="off">
+        <label for="url">Paste URL</label>
+        <div class="input-row">
+          <input
+            id="url"
+            name="url"
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=..."
+            required
+          >
+          <button id="submit-btn" type="submit">Analyze</button>
+        </div>
+      </form>
+
+      <div class="platform-pills" id="platform-pills">
+        <button class="pill" type="button" data-platform="YouTube">YouTube</button>
+        <button class="pill" type="button" data-platform="Instagram">Instagram</button>
+        <button class="pill" type="button" data-platform="Facebook">Facebook</button>
+        <button class="pill" type="button" data-platform="Loom">Loom</button>
+      </div>
+
+      <p class="help">
+        Public links work best. Some private/restricted links require login cookies.
+      </p>
+    </section>
+
+    <section id="status" class="status"></section>
+
+    <section id="result" class="result hidden">
+      <div class="result-header">
+        <div>
+          <p id="result-platform" class="result-platform"></p>
+          <h2 id="result-title"></h2>
+          <p id="result-subtitle"></p>
+        </div>
+        <p id="result-count" class="result-count"></p>
+      </div>
+      <div id="media-grid" class="media-grid"></div>
+    </section>
+  </main>
+
+  <section id="viewer-modal" class="viewer-modal hidden" aria-hidden="true">
+    <div class="viewer-panel" role="dialog" aria-modal="true" aria-label="Instagram media viewer">
+      <button id="viewer-close" class="viewer-close" type="button" aria-label="Close viewer">Close</button>
+      <h3 id="viewer-title" class="viewer-title"></h3>
+      <div id="viewer-content" class="viewer-content"></div>
+    </div>
+  </section>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
