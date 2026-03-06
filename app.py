@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import os
 import re
 import shutil
@@ -8,7 +9,10 @@ import uuid
 from pathlib import Path
 from urllib.parse import ParseResult, urlparse
 
-from flask import Flask, abort, after_this_request, jsonify, render_template, request, send_file
+from flask import Flask, abort, after_this_request, jsonify, make_response, render_template, request, send_file
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -24,6 +28,24 @@ SUPPORTED_PLATFORMS = {
 }
 
 app = Flask(__name__)
+
+
+def youtube_enabled() -> bool:
+    """YouTube is allowed only in non-prod (local/dev). Set ENABLE_YOUTUBE=1 to allow in prod."""
+    if os.getenv("ENABLE_YOUTUBE", "").strip().lower() in ("1", "true", "yes"):
+        return True
+    if os.getenv("FLASK_DEBUG", "0") == "1":
+        return True
+    return False
+
+
+def enabled_platforms() -> list[str]:
+    """Platforms available in this environment (YouTube excluded in prod unless opted in)."""
+    return [
+        name
+        for name in SUPPORTED_PLATFORMS
+        if name != "YouTube" or youtube_enabled()
+    ]
 
 
 class DownloaderError(Exception):
@@ -99,6 +121,8 @@ def cookies_file_from_env() -> str | None:
         return explicit_file
 
     cookies_b64 = os.getenv("YTDLP_COOKIES_B64", "").strip()
+    # Allow base64 with newlines (e.g. from copy-paste or multiline env)
+    cookies_b64 = "".join(cookies_b64.split())
     cookies_text = os.getenv("YTDLP_COOKIES_TEXT", "")
     if not cookies_b64 and not cookies_text:
         return None
@@ -178,8 +202,10 @@ def humanize_downloader_error(message: str, platform: str | None) -> str:
                 "Refresh cookies and, if needed, use a different server IP/proxy."
             )
         return (
-            "YouTube requires authenticated cookies on this server/IP for this request. "
-            "Set Render env var YTDLP_COOKIES_B64 with a base64-encoded YouTube cookies.txt from a logged-in browser."
+            "YouTube requires authenticated cookies on this server/IP. "
+            "Fix: (1) Export cookies.txt from a browser where you're logged into YouTube (use a 'cookies.txt' extension, Netscape format). "
+            "(2) Run: base64 < cookies.txt | tr -d '\\n' "
+            "(3) In Render → Service → Environment, add YTDLP_COOKIES_B64 = that base64 string, then redeploy."
         )
     return message
 
@@ -203,16 +229,26 @@ def run_yt_dlp_command(cmd: list[str]) -> subprocess.CompletedProcess[str]:
 
 def run_yt_dlp_json(url: str) -> dict:
     cmd = yt_dlp_base_args() + ["--dump-single-json", "--skip-download", url]
-    proc = run_yt_dlp_command(cmd)
+    try:
+        proc = run_yt_dlp_command(cmd)
+    except OSError as exc:
+        raise DownloaderError("yt-dlp is not installed or not available in PATH. Install it and try again.") from exc
 
     if proc.returncode != 0:
         msg = (proc.stderr or proc.stdout or "yt-dlp failed").strip()
         raise DownloaderError(msg)
 
+    if not (proc.stdout and proc.stdout.strip()):
+        raise DownloaderError("No metadata returned for this URL. The link may be private or unsupported.")
+
     try:
-        return json.loads(proc.stdout)
+        data = json.loads(proc.stdout)
     except json.JSONDecodeError as exc:
-        raise DownloaderError("Failed to parse media metadata from yt-dlp output.") from exc
+        raise DownloaderError("Failed to parse media metadata from this source.") from exc
+
+    if not isinstance(data, dict):
+        raise DownloaderError("Unexpected response format from this source.")
+    return data
 
 
 def format_score(fmt: dict) -> float:
@@ -346,21 +382,23 @@ def select_preview_url(item: dict) -> str | None:
 
 
 def flatten_entries(info: dict) -> list[dict]:
+    if not info or not isinstance(info, dict):
+        return []
     entries = info.get("entries")
-    if not entries:
+    if not entries or not isinstance(entries, list):
         return [info]
 
     flat: list[dict] = []
     for entry in entries:
-        if not entry:
+        if not entry or not isinstance(entry, dict):
             continue
         nested = entry.get("entries")
-        if nested:
-            flat.extend(item for item in nested if item)
+        if nested and isinstance(nested, list):
+            flat.extend(item for item in nested if item and isinstance(item, dict))
         else:
             flat.append(entry)
 
-    return flat or [info]
+    return flat if flat else [info]
 
 
 def infer_type(item: dict) -> str:
@@ -382,9 +420,12 @@ def infer_type(item: dict) -> str:
     return "file"
 
 
-def normalize_title(raw: str, fallback: str) -> str:
-    title = raw.strip() if raw else fallback
-    title = re.sub(r"\s+", " ", title)
+def normalize_title(raw: str | None, fallback: str) -> str:
+    try:
+        title = (raw.strip() if raw else fallback) or fallback
+    except (AttributeError, TypeError):
+        title = fallback
+    title = re.sub(r"\s+", " ", str(title))
     return title[:100]
 
 
@@ -393,22 +434,42 @@ def to_media_payload(items: list[dict], platform: str, source_url: str) -> tuple
     has_ffmpeg = ffmpeg_available()
     instagram_kind = detect_instagram_kind(source_url, len(items)) if platform == "Instagram" else None
     for idx, item in enumerate(items, start=1):
-        media_type = infer_type(item)
-        download_options, _selector_map = build_download_options(item, has_ffmpeg=has_ffmpeg)
-        payload.append(
-            {
-                "index": idx,
-                "platform": platform,
-                "type": media_type,
-                "instagram_kind": instagram_kind,
-                "title": normalize_title(item.get("title", ""), f"media_{idx}"),
-                "thumbnail": item.get("thumbnail"),
-                "preview_url": select_preview_url(item) if platform == "Instagram" else None,
-                "duration": item.get("duration"),
-                "ext": item.get("ext"),
-                "download_options": download_options,
-            }
-        )
+        if not item or not isinstance(item, dict):
+            continue
+        try:
+            media_type = infer_type(item)
+            download_options, _selector_map = build_download_options(item, has_ffmpeg=has_ffmpeg)
+            thumb = item.get("thumbnail")
+            if isinstance(thumb, list) and thumb:
+                thumb = thumb[0] if isinstance(thumb[0], str) else None
+            if thumb is not None and not isinstance(thumb, str):
+                thumb = str(thumb)
+            duration = item.get("duration")
+            if duration is not None and not isinstance(duration, (int, float)):
+                try:
+                    duration = float(duration)
+                except (TypeError, ValueError):
+                    duration = None
+            ext = item.get("ext")
+            if ext is not None and not isinstance(ext, str):
+                ext = str(ext)
+            payload.append(
+                {
+                    "index": len(payload) + 1,
+                    "platform": platform,
+                    "type": media_type,
+                    "instagram_kind": instagram_kind,
+                    "title": normalize_title(item.get("title"), f"media_{len(payload) + 1}"),
+                    "thumbnail": thumb,
+                    "preview_url": select_preview_url(item) if platform == "Instagram" else None,
+                    "duration": duration,
+                    "ext": ext,
+                    "download_options": download_options,
+                }
+            )
+        except Exception:
+            logger.exception("Skipping malformed item from source")
+            continue
     return payload, instagram_kind
 
 
@@ -446,7 +507,22 @@ def run_download(
 
 @app.get("/")
 def index() -> str:
-    return render_template("index.html")
+    return render_template("index.html", enabled_platforms=enabled_platforms())
+
+
+@app.get("/favicon.ico")
+def favicon():
+    """Return a minimal favicon to avoid 404 in browser tab."""
+    svg = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+        b'<rect width="32" height="32" rx="6" fill="#16181c"/>'
+        b'<path fill="#8ab4f8" d="M10 8h12v3l-6 5-6-5V8zm0 6h6v10h-6V14zm8 0h6v10h-6V14z"/>'
+        b"</svg>"
+    )
+    resp = make_response(svg, 200)
+    resp.headers["Content-Type"] = "image/svg+xml"
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 @app.post("/api/media")
@@ -459,25 +535,61 @@ def media():
         supported = ", ".join(SUPPORTED_PLATFORMS.keys())
         return jsonify({"error": f"Enter a valid URL from: {supported}."}), 400
 
+    if platform == "YouTube" and not youtube_enabled():
+        return (
+            jsonify(
+                {
+                    "error": "YouTube downloads are disabled in production. Use locally (FLASK_DEBUG=1) or set ENABLE_YOUTUBE=1 to enable."
+                }
+            ),
+            400,
+        )
+
     try:
         info = run_yt_dlp_json(url)
         entries = flatten_entries(info)
+        if not entries:
+            return jsonify({"error": "No playable media found for this link."}), 400
         items, instagram_kind = to_media_payload(entries, platform=platform, source_url=url)
+        if not items:
+            return jsonify({"error": "Could not read media formats for this link. It may be private or unsupported."}), 400
         has_ffmpeg = ffmpeg_available()
     except DownloaderError as err:
         return jsonify({"error": humanize_downloader_error(str(err), platform)}), 400
+    except Exception as err:
+        logger.exception("Unexpected error in /api/media")
+        return (
+            jsonify(
+                {
+                    "error": "Could not process this link. It may be private, region-restricted, or the source may be temporarily unavailable."
+                }
+            ),
+            400,
+        )
 
-    return jsonify(
-        {
-            "url": url,
-            "platform": platform,
-            "ffmpeg_available": has_ffmpeg,
-            "instagram_kind": instagram_kind,
-            "title": normalize_title(info.get("title", ""), f"{platform} media"),
-            "uploader": info.get("uploader") or info.get("channel"),
-            "items": items,
-        }
-    )
+    try:
+        uploader = info.get("uploader") or info.get("channel")
+        if uploader is not None and not isinstance(uploader, str):
+            uploader = str(uploader)
+        return jsonify(
+            {
+                "url": url,
+                "platform": platform,
+                "ffmpeg_available": has_ffmpeg,
+                "instagram_kind": instagram_kind,
+                "title": normalize_title(info.get("title"), f"{platform} media"),
+                "uploader": uploader or "",
+                "items": items,
+            }
+        )
+    except Exception:
+        logger.exception("Response serialization failed in /api/media")
+        return (
+            jsonify(
+                {"error": "Could not process this link. The source returned unexpected data."}
+            ),
+            400,
+        )
 
 
 @app.get("/api/download")
@@ -491,6 +603,12 @@ def download():
     if not platform:
         supported = ", ".join(SUPPORTED_PLATFORMS.keys())
         abort(400, f"Invalid URL. Supported platforms: {supported}.")
+
+    if platform == "YouTube" and not youtube_enabled():
+        abort(
+            400,
+            "YouTube downloads are disabled in production. Use locally or set ENABLE_YOUTUBE=1.",
+        )
 
     try:
         info = run_yt_dlp_json(url)
@@ -532,11 +650,14 @@ def download():
         return send_file(downloaded_file, as_attachment=True, download_name=downloaded_file.name)
     except DownloaderError as err:
         abort(400, humanize_downloader_error(str(err), platform))
+    except Exception:
+        logger.exception("Unexpected error in /api/download")
+        abort(400, "Download failed. The link may be invalid or the source may be temporarily unavailable.")
 
 
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=int(os.getenv("PORT", "5000")),
+        port=int(os.getenv("PORT", "5001")),
         debug=os.getenv("FLASK_DEBUG", "0") == "1",
     )

@@ -1,0 +1,11 @@
+{
+  "name": "ai-insta-download",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/src/input.css -o ./static/styles.css",
+    "watch:css": "tailwindcss -i ./static/src/input.css -o ./static/styles.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

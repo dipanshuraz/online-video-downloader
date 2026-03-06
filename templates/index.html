@@ -3,68 +3,103 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Universal Media Downloader</title>
+  <title>Media Downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body>
-  <main class="container">
-    <section class="hero">
-      <p class="eyebrow">Minimal Multi-Source Downloader</p>
-      <h1>Download videos and images from a single link</h1>
-      <p class="lead">Supported: YouTube, Instagram, Facebook, Loom</p>
-      <p class="lead">Instagram modes: video, photo, reels, stories, carousel, viewer</p>
-    </section>
+<body class="min-h-screen text-ink font-sans bg-bg-dark antialiased">
+  <div
+    class="fixed inset-0 pointer-events-none z-0 bg-bg-dark"
+    style="background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(40, 45, 55, 0.6) 0%, transparent 50%), #0d0e0f;"
+  ></div>
 
-    <section class="panel">
-      <form id="media-form" autocomplete="off">
-        <label for="url">Paste URL</label>
-        <div class="input-row">
-          <input
-            id="url"
-            name="url"
-            type="url"
-            placeholder="https://www.youtube.com/watch?v=..."
-            required
-          >
-          <button id="submit-btn" type="submit">Analyze</button>
-        </div>
-      </form>
+  <main class="relative z-10 min-h-screen flex items-center justify-center py-12 px-4 pb-12">
+    <div class="w-full max-w-[560px] rounded-[14px] bg-bg-card border border-line shadow-card px-6 pt-7 pb-6">
+      <header class="mb-6">
+        <p class="mb-1.5 text-xs font-semibold tracking-widest uppercase text-ink-muted">Video &amp; image downloader</p>
+        <h1 class="text-2xl font-semibold tracking-tight text-ink leading-tight">Paste a link, get the file</h1>
+      </header>
 
-      <div class="platform-pills" id="platform-pills">
-        <button class="pill" type="button" data-platform="YouTube">YouTube</button>
-        <button class="pill" type="button" data-platform="Instagram">Instagram</button>
-        <button class="pill" type="button" data-platform="Facebook">Facebook</button>
-        <button class="pill" type="button" data-platform="Loom">Loom</button>
+      <div class="flex flex-col">
+        <section class="transition-opacity" id="step-input">
+          <form id="media-form" class="flex flex-col gap-2.5 mb-4" autocomplete="off">
+            <label for="url" class="text-sm font-semibold text-ink-muted">URL</label>
+            <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2.5 items-stretch">
+              <input
+                id="url"
+                name="url"
+                type="url"
+                class="w-full px-4 py-3.5 rounded-[10px] border border-line bg-bg-elevated text-ink text-[0.95rem] outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-ink-dim focus:border-accent focus:ring-[3px] focus:ring-accent/40"
+                placeholder="https://instagram.com/... or facebook.com/..."
+                required
+              >
+              <button
+                id="submit-btn"
+                type="submit"
+                class="btn inline-flex items-center justify-center gap-2 border-0 rounded-[10px] py-3.5 px-5 font-semibold text-[0.95rem] cursor-pointer transition-all duration-150 whitespace-nowrap min-w-[110px] relative text-bg-dark bg-accent hover:bg-accent-hover hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-80"
+              >
+                <span class="btn-text">Analyze</span>
+                <span class="btn-loader" aria-hidden="true">
+                  <span class="w-5 h-5 border-2 border-current border-r-transparent rounded-full animate-spin"></span>
+                </span>
+              </button>
+            </div>
+          </form>
+
+          <div class="flex flex-wrap gap-2 mb-3.5" id="platform-pills">
+            {% for platform in enabled_platforms %}
+            <button
+              type="button"
+              class="pill border border-line bg-bg-elevated text-ink-muted py-2 px-3.5 rounded-full text-sm font-medium cursor-pointer transition-colors duration-200 hover:text-ink hover:bg-[#25282e]"
+              data-platform="{{ platform }}"
+            >{{ platform }}</button>
+            {% endfor %}
+          </div>
+          <p class="text-sm text-ink-dim m-0">Public links work best. Some sources may require login cookies.</p>
+        </section>
+
+        <section class="hidden transition-opacity" id="step-loading" aria-live="polite">
+          <div class="text-center py-8 px-6">
+            <div class="w-12 h-12 border-[3px] border-accent border-r-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="font-semibold text-ink m-0 mb-1">Analyzing link…</p>
+            <p class="text-sm text-ink-muted m-0">Fetching formats and metadata</p>
+          </div>
+        </section>
+
+        <section class="hidden transition-opacity" id="step-result">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4 pb-3.5 border-b border-line">
+            <div>
+              <p id="result-platform" class="mb-1 text-[0.72rem] font-bold uppercase tracking-wider text-ink-muted m-0"></p>
+              <h2 id="result-title" class="text-lg font-semibold text-ink m-0"></h2>
+              <p id="result-subtitle" class="mt-1 text-sm text-ink-muted m-0"></p>
+            </div>
+            <p id="result-count" class="text-sm text-ink-muted whitespace-nowrap m-0"></p>
+          </div>
+          <div id="media-grid" class="grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"></div>
+          <div class="mt-5 pt-4 border-t border-line">
+            <button type="button" id="back-btn" class="text-ink-muted bg-transparent border border-line rounded-[10px] py-3.5 px-5 font-semibold text-[0.95rem] cursor-pointer transition-colors hover:text-ink hover:bg-bg-elevated">Analyze another link</button>
+          </div>
+        </section>
       </div>
 
-      <p class="help">
-        Public links work best. Some private/restricted links require login cookies.
-      </p>
-    </section>
-
-    <section id="status" class="status"></section>
-
-    <section id="result" class="result hidden">
-      <div class="result-header">
-        <div>
-          <p id="result-platform" class="result-platform"></p>
-          <h2 id="result-title"></h2>
-          <p id="result-subtitle"></p>
-        </div>
-        <p id="result-count" class="result-count"></p>
-      </div>
-      <div id="media-grid" class="media-grid"></div>
-    </section>
+      <div id="status" class="min-h-[22px] mt-4 text-sm font-medium text-ink-muted" role="status" aria-live="polite"></div>
+    </div>
   </main>
 
-  <section id="viewer-modal" class="viewer-modal hidden" aria-hidden="true">
-    <div class="viewer-panel" role="dialog" aria-modal="true" aria-label="Instagram media viewer">
-      <button id="viewer-close" class="viewer-close" type="button" aria-label="Close viewer">Close</button>
-      <h3 id="viewer-title" class="viewer-title"></h3>
-      <div id="viewer-content" class="viewer-content"></div>
+  <section id="viewer-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/75" id="viewer-backdrop"></div>
+    <div class="relative w-[min(90vw,640px)] max-h-[88vh] overflow-auto bg-bg-card border border-line rounded-[14px] p-5 shadow-modal" role="dialog" aria-modal="true" aria-label="Media viewer">
+      <button id="viewer-close" class="absolute top-3 right-3 w-9 h-9 p-0 border-0 rounded-lg bg-bg-elevated text-ink-muted text-2xl leading-none cursor-pointer transition-colors hover:bg-line hover:text-ink" type="button" aria-label="Close">×</button>
+      <h3 id="viewer-title" class="mb-3 pr-11 text-base font-semibold text-ink m-0"></h3>
+      <div id="viewer-content" class="viewer-content [&_img]:w-full [&_img]:rounded-[10px] [&_img]:bg-line [&_video]:w-full [&_video]:rounded-[10px] [&_video]:bg-line"></div>
     </div>
   </section>
 
+  <script>
+    window.ENABLED_PLATFORMS = {{ enabled_platforms | tojson }};
+  </script>
   <script src="/static/app.js" defer></script>
 </body>
 </html>

@@ -12,6 +12,7 @@ It uses `yt-dlp` under the hood.
 
 - Python 3.10+
 - `pip`
+- Node.js 18+ (only for rebuilding frontend CSS)
 
 ## Setup
 
@@ -19,6 +20,23 @@ It uses `yt-dlp` under the hood.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+## Frontend (Tailwind CSS)
+
+The UI uses **Tailwind CSS**. The built stylesheet is `static/styles.css` (included in the repo).
+
+To rebuild after changing templates, `static/**/*.js`, or Tailwind config:
+
+```bash
+npm install
+npm run build:css
+```
+
+For local development with live CSS rebuilds:
+
+```bash
+npm run watch:css
 ```
 
 ## Run
@@ -29,12 +47,14 @@ python app.py
 
 Open:
 
-`http://127.0.0.1:5000`
+`http://127.0.0.1:5001`
+
+(Default port is 5001 to avoid conflict with macOS AirPlay Receiver on 5000. Override with `PORT=5000 python app.py` if you prefer.)
 
 For production process manager locally:
 
 ```bash
-gunicorn -w 2 -k gthread --threads 4 -b 0.0.0.0:5000 app:app
+gunicorn -w 2 -k gthread --threads 4 -b 0.0.0.0:5001 app:app
 ```
 
 ## How to use
@@ -72,12 +92,12 @@ Build and run locally with Docker:
 
 ```bash
 docker build -t ai-insta-download .
-docker run --rm -p 5000:5000 ai-insta-download
+docker run --rm -p 5001:5001 -e PORT=5001 ai-insta-download
 ```
 
 Open:
 
-`http://127.0.0.1:5000`
+`http://127.0.0.1:5001`
 
 ## Deploy on Render
 

@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+}
+
+@layer utilities {
+  .hidden {
+    display: none !important;
+  }
+}
+
+/* Button loading: hide text, show spinner in place */
+@layer components {
+  .btn .btn-loader {
+    display: none;
+  }
+  .btn.is-loading .btn-text {
+    visibility: hidden;
+  }
+  .btn.is-loading .btn-loader {
+    position: absolute;
+    display: inline-flex;
+  }
+  .pill.active {
+    @apply text-bg-dark bg-accent border-accent;
+  }
+}
