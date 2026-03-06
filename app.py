@@ -125,6 +125,9 @@ def yt_dlp_base_args() -> list[str]:
     cookies_file = cookies_file_from_env()
     if cookies_file:
         args.extend(["--cookies", cookies_file])
+    extractor_args = os.getenv("YTDLP_EXTRACTOR_ARGS", "").strip()
+    if extractor_args:
+        args.extend(["--extractor-args", extractor_args])
     return args
 
 
@@ -143,6 +146,20 @@ def is_instagram_auth_error(message: str) -> bool:
     )
 
 
+def is_youtube_auth_error(message: str) -> bool:
+    text = message.lower()
+    return any(
+        key in text
+        for key in [
+            "sign in to confirm",
+            "not a bot",
+            "use --cookies-from-browser or --cookies",
+            "this video may be inappropriate for some users",
+            "age-restricted",
+        ]
+    )
+
+
 def humanize_downloader_error(message: str, platform: str | None) -> str:
     if platform == "Instagram" and is_instagram_auth_error(message):
         if cookies_configured():
@@ -153,6 +170,16 @@ def humanize_downloader_error(message: str, platform: str | None) -> str:
         return (
             "Instagram requires login cookies for this URL (or your server IP is rate-limited). "
             "Set Render env var YTDLP_COOKIES_B64 with a base64-encoded cookies.txt from an Instagram-logged-in browser."
+        )
+    if platform == "YouTube" and is_youtube_auth_error(message):
+        if cookies_configured():
+            return (
+                "YouTube denied this request (bot check) even with cookies. "
+                "Refresh cookies and, if needed, use a different server IP/proxy."
+            )
+        return (
+            "YouTube requires authenticated cookies on this server/IP for this request. "
+            "Set Render env var YTDLP_COOKIES_B64 with a base64-encoded YouTube cookies.txt from a logged-in browser."
         )
     return message
 
