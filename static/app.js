@@ -30,9 +30,22 @@ const PLATFORM_HOSTS = {
 
 function setStatus(message, tone = "neutral") {
   statusEl.textContent = message || "";
-  statusEl.classList.remove("text-error", "text-ok");
-  if (tone === "error") statusEl.classList.add("text-error");
-  if (tone === "ok") statusEl.classList.add("text-ok");
+  statusEl.className = "inline-block py-2.5 px-6 rounded-full text-sm font-semibold transition-all duration-300 transform shadow-lg";
+
+  if (!message) {
+    statusEl.classList.add("opacity-0", "scale-95", "pointer-events-none");
+    return;
+  }
+
+  statusEl.classList.add("opacity-100", "scale-100");
+
+  if (tone === "error") {
+    statusEl.classList.add("bg-error/10", "text-error", "border", "border-error/20");
+  } else if (tone === "ok") {
+    statusEl.classList.add("bg-ok/10", "text-ok", "border", "border-ok/20");
+  } else {
+    statusEl.classList.add("bg-bg-elevated", "text-white", "border", "border-line");
+  }
 }
 
 function setLoading(isLoading) {
@@ -45,7 +58,9 @@ function showStep(stepId) {
   stepLoading.classList.add("hidden");
   stepResult.classList.add("hidden");
   const step = document.getElementById(stepId);
-  if (step) step.classList.remove("hidden");
+  if (step) {
+    step.classList.remove("hidden");
+  }
 }
 
 function updateActivePill(platform) {
@@ -81,7 +96,7 @@ function formatDuration(value) {
 
 function makePlaceholder(platform) {
   const label = `${platform || "Media"} Preview`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420"><rect width="100%" height="100%" fill="#1c1e23"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#5f6368" font-family="system-ui" font-size="24">${label}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e1e2e" /><stop offset="100%" stop-color="#12121c" /></linearGradient></defs><rect width="100%" height="100%" fill="url(#grad)"/><circle cx="50%" cy="40%" r="40" fill="#2d3139" opacity="0.6"/><text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" fill="#5f6368" font-family="system-ui" font-size="20" font-weight="600">${label}</text></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
@@ -106,33 +121,82 @@ function clearResults() {
 
 function buildMediaCard(url, item, platform) {
   const card = document.createElement("article");
-  card.className = "border border-line rounded-[10px] overflow-hidden bg-bg-elevated transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover";
+  card.className = "flex flex-col h-full glass-panel glass-panel-hover rounded-[20px] overflow-hidden group";
+
+  const thumbWrapper = document.createElement("div");
+  thumbWrapper.className = "relative w-full aspect-video overflow-hidden bg-bg-dark border-b border-line";
 
   const thumb = document.createElement("img");
-  thumb.className = "w-full h-[140px] object-cover block bg-line";
+  thumb.className = "w-full h-full object-cover transition-transform duration-700 group-hover:scale-105";
   thumb.src = item.thumbnail || makePlaceholder(platform);
   thumb.alt = item.title || `Media ${item.index}`;
   thumb.loading = "lazy";
 
-  const body = document.createElement("div");
-  body.className = "p-3 grid gap-2";
+  // Overlay gradient to make text legible if any
+  const overlay = document.createElement("div");
+  overlay.className = "absolute inset-0 bg-gradient-to-t from-bg-card/90 via-transparent to-transparent opacity-80 pointer-events-none";
 
-  const title = document.createElement("p");
-  title.className = "m-0 text-sm leading-snug text-ink line-clamp-2";
+  // Type badge
+  const badge = document.createElement("span");
+  badge.className = "absolute top-3 left-3 bg-bg-card/80 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider py-1 px-2.5 rounded-md border border-line";
+  badge.textContent = typeLabel(item.type);
+
+  // Duration
+  const duration = formatDuration(item.duration);
+  if (duration) {
+    const durBadge = document.createElement("span");
+    durBadge.className = "absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-white text-xs font-semibold py-1 px-2 rounded tracking-wide";
+    durBadge.textContent = duration;
+    thumbWrapper.appendChild(durBadge);
+  }
+
+  thumbWrapper.appendChild(thumb);
+  thumbWrapper.appendChild(overlay);
+  thumbWrapper.appendChild(badge);
+
+  const body = document.createElement("div");
+  body.className = "p-5 flex flex-col flex-grow w-full"; // ensure it takes full width
+
+  const headLayout = document.createElement("div");
+  headLayout.className = "mb-4 flex-grow";
+
+  const title = document.createElement("h3");
+  title.className = "m-0 font-bold text-base leading-snug text-white line-clamp-2 mb-1.5";
   title.textContent = item.title || `Media ${item.index}`;
 
   const meta = document.createElement("p");
-  meta.className = "m-0 text-xs text-ink-muted";
-  const parts = [platform, typeLabel(item.type), `Item ${item.index}`];
-  if (formatDuration(item.duration)) parts.push(formatDuration(item.duration));
+  meta.className = "m-0 text-[0.8rem] text-ink-muted flex flex-wrap gap-1.5 items-center";
+
+  const parts = [platform, `Item ${item.index}`];
   if (item.ext) parts.push(String(item.ext).toUpperCase());
-  meta.textContent = parts.filter(Boolean).join(" | ");
+
+  parts.forEach((part, i) => {
+    const span = document.createElement("span");
+    span.textContent = part;
+    meta.appendChild(span);
+    if (i < parts.length - 1) {
+      const dot = document.createElement("span");
+      dot.className = "w-1 h-1 rounded-full bg-line-light";
+      meta.appendChild(dot);
+    }
+  });
+
+  headLayout.appendChild(title);
+  headLayout.appendChild(meta);
 
   const controls = document.createElement("div");
-  controls.className = "grid gap-2";
+  controls.className = "grid gap-3 pt-4 border-t border-line mt-auto";
+
+  const selectWrapper = document.createElement("div");
+  selectWrapper.className = "relative";
+
+  const selectIcon = document.createElement("div");
+  selectIcon.className = "absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-ink-muted";
+  selectIcon.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
 
   const select = document.createElement("select");
-  select.className = "w-full text-sm text-ink border border-line rounded-lg py-2 px-2.5 bg-bg-card focus:outline-none focus:border-accent";
+  select.className = "w-full appearance-none text-sm font-medium text-white border border-line rounded-[12px] py-3 pl-4 pr-10 bg-bg-elevated/50 backdrop-blur-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors cursor-pointer hover:bg-bg-elevated";
+
   const rawOptions = Array.isArray(item.download_options) ? item.download_options : [];
   const formatOptions = rawOptions.length ? rawOptions : [{ value: "best", label: "Best available", mode: "auto" }];
   formatOptions.forEach((entry) => {
@@ -143,24 +207,28 @@ function buildMediaCard(url, item, platform) {
     select.appendChild(option);
   });
 
+  selectWrapper.appendChild(select);
+  selectWrapper.appendChild(selectIcon);
+
   const link = document.createElement("a");
-  link.className = "inline-flex items-center justify-center py-2.5 px-3.5 rounded-lg border border-accent text-accent font-semibold text-sm no-underline cursor-pointer transition-colors hover:bg-accent/15 hover:text-accent-hover";
-  link.textContent = "Download";
+  link.className = "btn w-full inline-flex items-center justify-center py-3 px-4 rounded-[12px] border border-accent text-accent font-bold text-sm tracking-wide no-underline cursor-pointer transition-all hover:bg-accent hover:text-bg-dark";
+  link.innerHTML = `<span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download</span>`;
   link.href = buildDownloadHref(url, item.index, select.value);
   link.rel = "noopener";
 
   select.addEventListener("change", () => {
     const selected = select.selectedOptions[0];
-    link.textContent = selected?.dataset?.mode === "audio" ? "Download Audio" : "Download";
+    const isAudio = selected?.dataset?.mode === "audio";
+    link.innerHTML = `<span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${isAudio ? '<path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle>' : '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>'}</svg> ${isAudio ? 'Download Audio' : 'Download'}</span>`;
     link.href = buildDownloadHref(url, item.index, select.value);
   });
 
-  body.appendChild(title);
-  body.appendChild(meta);
-  controls.appendChild(select);
+  body.appendChild(headLayout);
+  controls.appendChild(selectWrapper);
   controls.appendChild(link);
   body.appendChild(controls);
-  card.appendChild(thumb);
+
+  card.appendChild(thumbWrapper);
   card.appendChild(body);
   return card;
 }
@@ -265,18 +333,3 @@ document.querySelectorAll(".pill").forEach((pill) => {
     setStatus(`${platform} selected. Paste or edit a ${platform} link.`);
   });
 });
-
-// Viewer modal (if used elsewhere)
-const viewerModal = document.getElementById("viewer-modal");
-const viewerClose = document.getElementById("viewer-close");
-const viewerBackdrop = document.getElementById("viewer-backdrop");
-if (viewerClose) {
-  viewerClose.addEventListener("click", () => {
-    if (viewerModal) viewerModal.classList.add("hidden");
-  });
-}
-if (viewerBackdrop) {
-  viewerBackdrop.addEventListener("click", () => {
-    if (viewerModal) viewerModal.classList.add("hidden");
-  });
-}

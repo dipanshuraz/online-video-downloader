@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 from urllib.parse import ParseResult, urlparse
@@ -145,7 +146,7 @@ def cookies_file_from_env() -> str | None:
 
 
 def yt_dlp_base_args() -> list[str]:
-    args = ["yt-dlp", "--no-warnings"]
+    args = [sys.executable, "-m", "yt_dlp", "--no-warnings"]
     cookies_file = cookies_file_from_env()
     if cookies_file:
         args.extend(["--cookies", cookies_file])
@@ -218,7 +219,7 @@ def run_yt_dlp_command(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     message = (proc.stderr or proc.stdout or "yt-dlp failed").strip()
     if "--no-check-certificates" not in cmd and is_certificate_verify_error(message):
         retry_cmd = cmd.copy()
-        retry_cmd.insert(1, "--no-check-certificates")
+        retry_cmd.insert(3, "--no-check-certificates")
         retry_proc = subprocess.run(retry_cmd, capture_output=True, text=True, check=False)
         if retry_proc.returncode == 0:
             return retry_proc

@@ -3,99 +3,107 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Media Downloader</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <title>Media Downloader - Premium</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body class="min-h-screen text-ink font-sans bg-bg-dark antialiased">
-  <div
-    class="fixed inset-0 pointer-events-none z-0 bg-bg-dark"
-    style="background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(40, 45, 55, 0.6) 0%, transparent 50%), #0d0e0f;"
-  ></div>
+<body class="min-h-screen text-ink font-sans bg-bg-dark antialiased overflow-x-hidden selection:bg-accent/30 selection:text-white">
+  
+  <!-- Animated Background Shapes -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-accent/20 blur-[120px] mix-blend-screen animate-blob"></div>
+    <div class="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#d946ef]/15 blur-[120px] mix-blend-screen animate-blob animation-delay-2000"></div>
+    <div class="absolute bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-[#22d3ee]/15 blur-[120px] mix-blend-screen animate-blob animation-delay-4000"></div>
+    <div class="absolute inset-0 bg-[#050511]/60"></div> <!-- Overlay -->
+  </div>
 
-  <main class="relative z-10 min-h-screen flex items-center justify-center py-12 px-4 pb-12">
-    <div class="w-full max-w-[560px] rounded-[14px] bg-bg-card border border-line shadow-card px-6 pt-7 pb-6">
-      <header class="mb-6">
-        <p class="mb-1.5 text-xs font-semibold tracking-widest uppercase text-ink-muted">Video &amp; image downloader</p>
-        <h1 class="text-2xl font-semibold tracking-tight text-ink leading-tight">Paste a link, get the file</h1>
+  <main class="relative z-10 min-h-screen flex items-center justify-center py-12 px-4 pb-12 w-full">
+    <div class="w-full max-w-[640px] rounded-[24px] glass-panel px-6 sm:px-10 pt-10 pb-8 animate-reveal">
+      <header class="mb-10 text-center">
+        <p class="mb-2 text-xs font-bold tracking-[0.2em] uppercase text-accent">Video &amp; image downloader</p>
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight">Paste a link, <span class="text-transparent bg-clip-text bg-gradient-to-r from-accent to-[#d946ef]">get the file</span></h1>
       </header>
 
-      <div class="flex flex-col">
-        <section class="transition-opacity" id="step-input">
-          <form id="media-form" class="flex flex-col gap-2.5 mb-4" autocomplete="off">
-            <label for="url" class="text-sm font-semibold text-ink-muted">URL</label>
-            <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2.5 items-stretch">
-              <input
-                id="url"
-                name="url"
-                type="url"
-                class="w-full px-4 py-3.5 rounded-[10px] border border-line bg-bg-elevated text-ink text-[0.95rem] outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-ink-dim focus:border-accent focus:ring-[3px] focus:ring-accent/40"
-                placeholder="https://instagram.com/... or facebook.com/..."
-                required
-              >
+      <div class="flex flex-col relative w-full">
+        <!-- Input Step -->
+        <section class="transition-all duration-300" id="step-input">
+          <form id="media-form" class="flex flex-col gap-4 mb-6" autocomplete="off">
+            <label for="url" class="text-sm font-semibold text-ink-muted ml-1">Media URL</label>
+            <div class="relative flex flex-col sm:flex-row gap-3 items-stretch">
+              <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg class="w-5 h-5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                </div>
+                <input
+                  id="url"
+                  name="url"
+                  type="url"
+                  class="w-full pl-11 pr-4 py-4 rounded-[16px] border border-line bg-bg-elevated/50 backdrop-blur-sm text-white text-[1rem] outline-none transition-[border-color,box-shadow,background-color] duration-300 placeholder:text-ink-dim hover:bg-bg-elevated focus:border-accent focus:bg-bg-elevated focus:shadow-glow focus:ring-0"
+                  placeholder="https://instagram.com/... or facebook.com/..."
+                  required
+                >
+              </div>
               <button
                 id="submit-btn"
                 type="submit"
-                class="btn inline-flex items-center justify-center gap-2 border-0 rounded-[10px] py-3.5 px-5 font-semibold text-[0.95rem] cursor-pointer transition-all duration-150 whitespace-nowrap min-w-[110px] relative text-bg-dark bg-accent hover:bg-accent-hover hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-80"
+                class="btn inline-flex items-center justify-center gap-2 border-0 rounded-[16px] py-4 px-8 font-bold text-[1rem] cursor-pointer transition-all duration-300 whitespace-nowrap min-w-[140px] relative text-white bg-gradient-to-r from-accent to-[#d946ef] hover:shadow-glow hover:-translate-y-1 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
-                <span class="btn-text">Analyze</span>
+                <span class="btn-text flex items-center gap-2">Analyze <svg class="w-4 h-4 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg></span>
                 <span class="btn-loader" aria-hidden="true">
-                  <span class="w-5 h-5 border-2 border-current border-r-transparent rounded-full animate-spin"></span>
+                  <span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
                 </span>
               </button>
             </div>
           </form>
 
-          <div class="flex flex-wrap gap-2 mb-3.5" id="platform-pills">
+          <div class="flex flex-wrap gap-2.5 justify-center mb-6" id="platform-pills">
             {% for platform in enabled_platforms %}
             <button
               type="button"
-              class="pill border border-line bg-bg-elevated text-ink-muted py-2 px-3.5 rounded-full text-sm font-medium cursor-pointer transition-colors duration-200 hover:text-ink hover:bg-[#25282e]"
+              class="pill border border-line bg-bg-elevated/40 text-ink-muted py-2 px-5 rounded-full text-sm font-semibold cursor-pointer transition-all duration-300 hover:text-white hover:bg-line hover:border-line-light hover:-translate-y-0.5"
               data-platform="{{ platform }}"
             >{{ platform }}</button>
             {% endfor %}
           </div>
-          <p class="text-sm text-ink-dim m-0">Public links work best. Some sources may require login cookies.</p>
+          <p class="text-sm text-ink-dim m-0 text-center">Public links work best. Some sources may require login cookies.</p>
         </section>
 
-        <section class="hidden transition-opacity" id="step-loading" aria-live="polite">
-          <div class="text-center py-8 px-6">
-            <div class="w-12 h-12 border-[3px] border-accent border-r-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p class="font-semibold text-ink m-0 mb-1">Analyzing link…</p>
-            <p class="text-sm text-ink-muted m-0">Fetching formats and metadata</p>
-          </div>
+        <!-- Loading Step -->
+        <section class="hidden transition-opacity duration-500 py-12 flex flex-col items-center justify-center animate-reveal" id="step-loading" aria-live="polite">
+          <div class="premium-loader mb-6"></div>
+          <p class="font-bold text-lg text-white m-0 mb-1 animate-pulse">Analyzing link…</p>
+          <p class="text-sm text-ink-muted m-0">Fetching formats and high-quality media</p>
         </section>
 
-        <section class="hidden transition-opacity" id="step-result">
-          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4 pb-3.5 border-b border-line">
-            <div>
-              <p id="result-platform" class="mb-1 text-[0.72rem] font-bold uppercase tracking-wider text-ink-muted m-0"></p>
-              <h2 id="result-title" class="text-lg font-semibold text-ink m-0"></h2>
-              <p id="result-subtitle" class="mt-1 text-sm text-ink-muted m-0"></p>
+        <!-- Result Step -->
+        <section class="hidden transition-opacity duration-500 animate-reveal" id="step-result">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-6 pb-5 border-b border-line">
+            <div class="flex-grow">
+              <div class="inline-flex items-center gap-2 mb-2">
+                <span class="w-2 h-2 rounded-full bg-accent animate-pulse-glow"></span>
+                <p id="result-platform" class="text-[0.75rem] font-bold uppercase tracking-widest text-[#d946ef] m-0"></p>
+              </div>
+              <h2 id="result-title" class="text-xl font-bold text-white m-0 line-clamp-1"></h2>
+              <p id="result-subtitle" class="mt-1.5 text-sm text-ink-muted m-0 font-medium"></p>
             </div>
-            <p id="result-count" class="text-sm text-ink-muted whitespace-nowrap m-0"></p>
+            <div class="bg-bg-elevated/80 px-4 py-2 rounded-xl border border-line backdrop-blur-sm">
+              <p id="result-count" class="text-sm font-semibold text-white whitespace-nowrap m-0"></p>
+            </div>
           </div>
-          <div id="media-grid" class="grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]"></div>
-          <div class="mt-5 pt-4 border-t border-line">
-            <button type="button" id="back-btn" class="text-ink-muted bg-transparent border border-line rounded-[10px] py-3.5 px-5 font-semibold text-[0.95rem] cursor-pointer transition-colors hover:text-ink hover:bg-bg-elevated">Analyze another link</button>
+          <div id="media-grid" class="grid gap-5 grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]"></div>
+          <div class="mt-8 pt-6 border-t border-line flex justify-center">
+            <button type="button" id="back-btn" class="text-ink-muted bg-transparent border-2 border-line rounded-[16px] py-3.5 px-8 font-bold text-[0.95rem] cursor-pointer transition-all duration-300 hover:border-accent hover:text-white hover:-translate-y-0.5">
+              Analyze another link
+            </button>
           </div>
         </section>
       </div>
 
-      <div id="status" class="min-h-[22px] mt-4 text-sm font-medium text-ink-muted" role="status" aria-live="polite"></div>
+      <!-- Status Toast Container -->
+      <div class="relative mt-6 min-h-[48px] flex items-center justify-center text-center">
+         <div id="status" class="inline-block py-2.5 px-6 rounded-full text-sm font-semibold text-ink-muted opacity-0 transition-all duration-300 transform scale-95" role="status" aria-live="polite"></div>
+      </div>
     </div>
   </main>
-
-  <section id="viewer-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6" aria-hidden="true">
-    <div class="absolute inset-0 bg-black/75" id="viewer-backdrop"></div>
-    <div class="relative w-[min(90vw,640px)] max-h-[88vh] overflow-auto bg-bg-card border border-line rounded-[14px] p-5 shadow-modal" role="dialog" aria-modal="true" aria-label="Media viewer">
-      <button id="viewer-close" class="absolute top-3 right-3 w-9 h-9 p-0 border-0 rounded-lg bg-bg-elevated text-ink-muted text-2xl leading-none cursor-pointer transition-colors hover:bg-line hover:text-ink" type="button" aria-label="Close">×</button>
-      <h3 id="viewer-title" class="mb-3 pr-11 text-base font-semibold text-ink m-0"></h3>
-      <div id="viewer-content" class="viewer-content [&_img]:w-full [&_img]:rounded-[10px] [&_img]:bg-line [&_video]:w-full [&_video]:rounded-[10px] [&_video]:bg-line"></div>
-    </div>
-  </section>
 
   <script>
     window.ENABLED_PLATFORMS = {{ enabled_platforms | tojson }};
